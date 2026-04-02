@@ -9,6 +9,9 @@ style.font.size = Pt(11)
 
 SHOTS = "C:/Users/User/Downloads/lab3/screenshots"
 
+def img(path, w=6.2):
+    doc.add_picture(path, width=Inches(w))
+
 # ============ COVER PAGE ============
 for _ in range(6):
     doc.add_paragraph('')
@@ -27,10 +30,7 @@ info.alignment = WD_ALIGN_PARAGRAPH.CENTER
 info.add_run('Student Name: Cheng Wui Sum\nStudent ID: 22074221d\nDue: 11:59pm, April 8, 2026').font.size = Pt(12)
 doc.add_page_break()
 
-def add_img(path, width=6.2):
-    doc.add_picture(path, width=Inches(width))
-
-# ============ IP SECTION ============
+# ============ IP ============
 doc.add_heading('IP', level=1)
 
 # --- Q3 ---
@@ -38,12 +38,15 @@ doc.add_heading('Q3', level=2)
 p = doc.add_paragraph()
 p.add_run('How many bytes are in the IP header? How many bytes are in the payload of the IP datagram? Explain how you determined the number of payload bytes.').italic = True
 
-add_img(f"{SHOTS}/ip_q3_56byte.png")
+img(f"{SHOTS}/ip_q3_56byte.png")
 doc.add_paragraph(
-    'The IP header is 20 bytes long, indicated by the Header Length field: IHL = 5 (5 × 4 = 20 bytes). '
-    'The IP payload is 64 bytes, calculated as: Total Length (84) − Header Length (20) = 64 bytes. '
-    'The 64-byte payload consists of the 8-byte ICMP header (Type, Code, Checksum, Identifier, Sequence Number) '
-    'plus 56 bytes of ICMP data ("abcdefghijklmnop..." padding).'
+    'From the first ICMP Echo Request (Frame 61, 56-byte ping to www.inria.fr):\n\n'
+    'The IP header is 20 bytes long. This is determined from the Header Length (IHL) field, which has '
+    'a value of 5, meaning 5 × 4 = 20 bytes.\n\n'
+    'The IP payload is 64 bytes. This is calculated as:\n'
+    '    Total Length (84 bytes) − IP Header Length (20 bytes) = 64 bytes\n\n'
+    'The 64-byte payload consists of the 8-byte ICMP header (Type, Code, Checksum, Identifier, '
+    'Sequence Number) plus 56 bytes of ICMP data ("abcdefghijklmnop..." padding), totalling 8 + 56 = 64 bytes.'
 )
 
 # --- Q5 ---
@@ -51,16 +54,21 @@ doc.add_heading('Q5', level=2)
 p = doc.add_paragraph()
 p.add_run('Which fields in the IP datagram always change from one datagram to the next within this series of ICMP messages sent by your computer?').italic = True
 
-add_img(f"{SHOTS}/ip_q5_q7_id_pattern.png")
+img(f"{SHOTS}/ip_q5_q7_tracert_pattern.png")
 doc.add_paragraph(
-    'The fields that always change are:\n'
-    '1. Identification — increments by 1 each packet (0x0b71, 0x0b72, 0x0b73, ..., 0x0b7a)\n'
-    '2. Header Checksum — recomputed for each datagram since the Identification field changed\n\n'
-    'Fields that stay constant: Version (4), Header Length (20), DSCP (0x00), Total Length (60), '
-    'Flags (0x00), Fragment Offset (0), TTL (128), Protocol (ICMP/1), Source IP (192.168.68.75), '
-    'Destination IP (143.89.209.9). The constant fields must stay the same because they describe '
-    'the same type of packet to the same destination. The Identification and Checksum must change '
-    'because each datagram needs a unique ID for reassembly, and the checksum covers the header.'
+    'Examining the series of ICMP Echo Request packets sent by tracert to www.inria.fr '
+    '(lab3_icmp_tracert.pcapng), the fields that always change are:\n\n'
+    '1. TTL (Time to Live) — increments with each group of probes: 1, 1, 1, 2, 2, 2, 3, 3, 3, ...\n'
+    '   This is the core mechanism of traceroute.\n'
+    '2. Identification — increments by 1 for each datagram: 0xda8a, 0xda8b, 0xda8c, 0xda8d, ...\n'
+    '3. Header Checksum — recomputed for each datagram since TTL and Identification changed.\n\n'
+    'Fields that stay constant: Version (4), Header Length (20 bytes), DSCP (0x00), Total Length (92), '
+    'Flags (0x00), Fragment Offset (0), Protocol (ICMP/1), Source IP (192.168.68.75), '
+    'Destination IP (128.93.162.83).\n\n'
+    'The constant fields must stay the same because they describe the same type of probe packet to the same '
+    'destination. TTL must change because that is how traceroute discovers each hop. Identification must change '
+    'because each datagram needs a unique ID for reassembly purposes. Checksum must change because it covers '
+    'the entire header including the fields that changed.'
 )
 
 # --- Q7 ---
@@ -69,10 +77,12 @@ p = doc.add_paragraph()
 p.add_run('Describe the pattern you see in the values in the Identification field of the IP datagram.').italic = True
 
 doc.add_paragraph(
-    'As shown in the screenshot above, the Identification field increments sequentially by exactly 1 '
-    'for each successive ICMP Echo Request: 0x0b71 (2929), 0x0b72 (2930), 0x0b73 (2931), ..., '
-    '0x0b7a (2938). This is the standard behavior of the Windows IP stack, which uses a simple '
-    'incrementing global counter for the Identification field.'
+    'As annotated in the screenshot above, the Identification field increments sequentially by exactly 1 '
+    'for each successive ICMP Echo Request sent by the host:\n\n'
+    '  0xda8a (55946) → 0xda8b (55947) → 0xda8c (55948) → 0xda8d (55949) → ...\n\n'
+    'This is the standard behavior of the Windows IP stack, which uses a simple incrementing global counter '
+    'for the Identification field. The counter is shared across all IP datagrams sent by the host, '
+    'which is why consecutive traceroute probe packets show consecutive Identification values with no gaps.'
 )
 
 # --- Q9 ---
@@ -80,15 +90,17 @@ doc.add_heading('Q9', level=2)
 p = doc.add_paragraph()
 p.add_run('Do these values remain unchanged for all of the ICMP TTL-exceeded replies sent to your computer by the nearest (first hop) router? Why?').italic = True
 
-add_img(f"{SHOTS}/ip_q9_first_hop.png")
+img(f"{SHOTS}/ip_q9_first_hop.png")
 doc.add_paragraph(
-    'The three TTL-exceeded replies from the first-hop router (192.168.68.1) show:\n'
-    '• TTL: constant at 64 for all three replies. This is expected — the router is one hop away and uses '
-    'a default TTL of 64.\n'
-    '• Identification: changes between replies (0x1f50, 0x1f54, 0x1f57). This is expected because each '
-    'ICMP TTL-exceeded reply is a new IP datagram generated by the router with its own incrementing '
-    'Identification counter. The values are not strictly sequential because the router sends other '
-    'IP datagrams between these replies.'
+    'Examining the three ICMP TTL-exceeded replies from the first-hop router (192.168.68.1):\n\n'
+    '• TTL: constant at 64 for all three replies. This is expected because the router is only one hop '
+    'away, and it uses the default initial TTL of 64 (typical for Linux/Unix-based routers such as this '
+    'TP-Link gateway).\n\n'
+    '• Identification: changes across replies — 0x1f50, 0x1f54, 0x1f57. This is expected because each '
+    'ICMP TTL-exceeded reply is a new, independent IP datagram generated by the router. The router assigns '
+    'a new Identification value from its own incrementing counter. The values are not strictly sequential '
+    '(gaps of 4 and 3) because the router also sends other IP datagrams (e.g., ARP, routing updates) '
+    'between these ICMP replies, consuming Identification numbers.'
 )
 
 # --- Q11 ---
@@ -100,26 +112,29 @@ p.add_run(
     'whether this is the first fragment versus a latter fragment? How long is this IP datagram?'
 ).italic = True
 
-add_img(f"{SHOTS}/ip_q11_first_fragment.png")
+img(f"{SHOTS}/ip_q11_first_fragment.png")
 doc.add_paragraph(
     'First fragment (Frame 1337) of the 2000-byte ICMP Echo Request:\n'
     '• Total Length: 1500 bytes\n'
-    '• Identification: 0xdab6\n'
-    '• Flags: More Fragments (MF) = 1 — this indicates the datagram HAS been fragmented.\n'
-    '• Fragment Offset: 0 — this indicates it is the FIRST fragment.\n\n'
-    'How to distinguish first vs. latter fragments:\n'
-    '• First fragment: MF = 1, Offset = 0\n'
-    '• Latter fragment: Offset > 0 (MF = 1 if more follow, MF = 0 if last)\n\n'
-    'This IP datagram is 1500 bytes long (maximum Ethernet MTU).'
+    '• Identification: 0xdab6 (55990)\n'
+    '• Flags: More Fragments (MF) = 1\n'
+    '• Fragment Offset: 0\n\n'
+    'What indicates fragmentation: The "More Fragments" (MF) flag is set to 1, indicating additional '
+    'fragments follow this one.\n\n'
+    'First vs. latter fragment:\n'
+    '• First fragment: MF = 1, Fragment Offset = 0 (data starts at byte 0)\n'
+    '• Middle fragment: MF = 1, Fragment Offset > 0\n'
+    '• Last fragment: MF = 0, Fragment Offset > 0\n\n'
+    'This IP datagram is 1500 bytes long (the maximum Ethernet MTU of 1500 bytes).'
 )
 
-add_img(f"{SHOTS}/ip_q11_second_fragment.png")
+img(f"{SHOTS}/ip_q11_second_fragment.png")
 doc.add_paragraph(
     'Second/last fragment (Frame 1338):\n'
-    '• Total Length: 548 bytes, MF = 0 (no more fragments), Offset = 1480\n'
-    '• Same Identification 0xdab6 confirms it belongs to the same original datagram.\n'
-    '• Offset > 0 indicates this is NOT the first fragment. MF = 0 indicates it is the last.\n'
-    '• Reassembled total: 1480 + 528 = 2008 bytes (20 IP header + 8 ICMP header + 2000 data - 20 = 2008 payload).'
+    '• Total Length: 548 bytes, MF = 0 (no more fragments), Fragment Offset = 1480 bytes\n'
+    '• Same Identification (0xdab6) confirms it belongs to the same original datagram.\n'
+    '• Fragment Offset > 0 confirms this is NOT the first fragment. MF = 0 confirms it is the last.\n'
+    '• Reassembled payload: 1480 + 528 = 2008 bytes (8-byte ICMP header + 2000 bytes of data).'
 )
 
 # --- Q15 ---
@@ -127,25 +142,27 @@ doc.add_heading('Q15', level=2)
 p = doc.add_paragraph()
 p.add_run('What fields change in the IP header among the fragments?').italic = True
 
-add_img(f"{SHOTS}/ip_q15_3500_fragments.png")
+img(f"{SHOTS}/ip_q15_3500_fragments.png")
 doc.add_paragraph(
-    'The 3500-byte ICMP Echo Request is fragmented into 3 IP datagrams (ID = 0xdabb):\n\n'
-    'Fragment 1: Total Length = 1500, MF = 1, Offset = 0\n'
-    'Fragment 2: Total Length = 1500, MF = 1, Offset = 1480\n'
-    'Fragment 3: Total Length = 568,  MF = 0, Offset = 2960\n\n'
+    'The 3500-byte ICMP Echo Request is fragmented into 3 IP datagrams (all sharing ID = 0xdabb):\n\n'
+    'Fragment 1 (Frame 1513): Total Length = 1500, MF = 1, Offset = 0\n'
+    'Fragment 2 (Frame 1514): Total Length = 1500, MF = 1, Offset = 1480\n'
+    'Fragment 3 (Frame 1515): Total Length = 568,  MF = 0, Offset = 2960\n\n'
     'Fields that CHANGE among fragments:\n'
-    '1. Total Length — 1500, 1500, 568\n'
-    '2. More Fragments (MF) flag — 1, 1, 0\n'
-    '3. Fragment Offset — 0, 1480, 2960\n'
-    '4. Header Checksum — recomputed for each fragment\n\n'
-    'Fields that stay the SAME: Version, IHL, DSCP, Identification (0xdabb), TTL (128), '
-    'Protocol (ICMP/1), Source IP, Destination IP. The Identification must stay the same '
-    'so the receiver can reassemble the fragments.'
+    '1. Total Length — 1500, 1500, 568 bytes\n'
+    '2. More Fragments (MF) flag — 1, 1, 0 (last fragment has MF = 0)\n'
+    '3. Fragment Offset — 0, 1480, 2960 bytes (stored in 8-byte units: 0, 185, 370)\n'
+    '4. Header Checksum — recomputed for each fragment since the above fields differ\n\n'
+    'Fields that remain the SAME: Version (4), Header Length (20), DSCP (0x00), '
+    'Identification (0xdabb), TTL (128), Protocol (ICMP/1), Source IP (192.168.68.75), '
+    'Destination IP (128.93.162.83). The Identification must be identical across all fragments '
+    'so the receiver can identify which fragments belong together and reassemble them.\n\n'
+    'Verification: Total data = 1480 + 1480 + 548 = 3508 bytes = 8 (ICMP header) + 3500 (data).'
 )
 
 doc.add_page_break()
 
-# ============ ICMP SECTION ============
+# ============ ICMP ============
 doc.add_heading('ICMP', level=1)
 
 # --- Q1 ---
@@ -153,12 +170,13 @@ doc.add_heading('Q1', level=2)
 p = doc.add_paragraph()
 p.add_run('What is the IP address of your host? What is the IP address of the destination host?').italic = True
 
-add_img(f"{SHOTS}/icmp_q1_q3_ping_request.png")
+img(f"{SHOTS}/icmp_q1_q3_ping_request.png")
 doc.add_paragraph(
-    'From the first ICMP Echo Request (Frame 579) in the ping capture:\n'
+    'From the first ICMP Echo Request (Frame 579) in the ping capture to www.ust.hk:\n\n'
     '• My host IP address: 192.168.68.75\n'
-    '• Destination host IP address: 143.89.209.9 (www.ust.hk)\n\n'
-    'My host uses a private IP address (192.168.68.0/22 subnet) behind a NAT router (TP-Link, 192.168.68.1).'
+    '• Destination host IP address: 143.89.209.9 (www.ust.hk — Hong Kong University of Science and Technology)\n\n'
+    'My host uses a private IP address on the 192.168.68.0/22 subnet, behind a NAT router '
+    '(TP-Link gateway at 192.168.68.1).'
 )
 
 # --- Q3 ---
@@ -170,20 +188,20 @@ p.add_run(
     'and identifier fields?'
 ).italic = True
 
-add_img(f"{SHOTS}/icmp_q3_ping_reply.png")
+img(f"{SHOTS}/icmp_q3_ping_reply.png")
 doc.add_paragraph(
-    'Ping Echo Request (Frame 579):\n'
-    '• Type: 8 (Echo Request)\n'
-    '• Code: 0\n\n'
-    'Other fields:\n'
+    'Examining the ICMP Echo Request (Frame 579):\n'
+    '• ICMP Type: 8 (Echo Request)\n'
+    '• ICMP Code: 0\n\n'
+    'Other fields in the ICMP packet:\n'
     '• Checksum: 0x010b — 2 bytes (16 bits)\n'
-    '• Identifier: 0x0007 — 2 bytes (16 bits)\n'
+    '• Identifier: 0x0007 (7) — 2 bytes (16 bits)\n'
     '• Sequence Number: 19530 (0x4c4a) — 2 bytes (16 bits)\n'
-    '• Data: 32 bytes of padding ("abcdefghijklmnop...")\n\n'
-    'Corresponding Echo Reply (Frame 580):\n'
-    '• Type: 0 (Echo Reply), Code: 0\n'
-    '• Checksum: 0x090b (2 bytes), Identifier: 0x0007 (2 bytes), Sequence: 19530 (2 bytes)\n'
-    '• The reply contains the same Identifier, Sequence Number, and Data as the request.'
+    '• Data: 32 bytes of padding ("abcdefghijklmnopqrstuvwabcdefghi")\n\n'
+    'Total ICMP header = Type (1B) + Code (1B) + Checksum (2B) + Identifier (2B) + Sequence (2B) = 8 bytes.\n'
+    'Total ICMP message = 8 + 32 = 40 bytes, matching IP payload (Total Length 60 − IP Header 20 = 40).\n\n'
+    'The corresponding Echo Reply (Frame 580) has Type = 0 (Echo Reply), Code = 0, '
+    'Checksum = 0x090b, and the same Identifier (0x0007), Sequence Number (19530), and Data.'
 )
 
 # --- Q7 ---
@@ -194,15 +212,19 @@ p.add_run(
     'packets in the first half of this lab? If yes, how so?'
 ).italic = True
 
-add_img(f"{SHOTS}/icmp_q7_tracert_echo.png")
+img(f"{SHOTS}/icmp_q7_tracert_echo.png")
 doc.add_paragraph(
-    'The tracert ICMP Echo Request (Frame 115) differs from the ping Echo Request:\n\n'
-    '1. TTL: Tracert sets TTL = 1 (incrementing per hop), while ping uses TTL = 128 (Windows default). '
-    'This is the fundamental difference — tracert uses low TTL values to discover intermediate routers.\n'
-    '2. Data size: Tracert carries 64 bytes of all-zero padding; ping carries 32 bytes of "abcdefgh..." padding.\n'
-    '3. IP Total Length: Tracert = 92 bytes (20 IP + 8 ICMP + 64 data); Ping = 60 bytes (20 + 8 + 32).\n\n'
-    'Similarities: Both use Type 8 (Echo Request), Code 0, and have the same ICMP fields '
-    '(Checksum, Identifier, Sequence Number).'
+    'The ICMP Echo Request from tracert (Frame 115) differs from the ping Echo Request (Frame 579) '
+    'in several ways:\n\n'
+    '1. TTL: The tracert echo request has TTL = 1 (incrementing per hop), while the ping echo request '
+    'has TTL = 128 (default Windows TTL). This is the fundamental difference — tracert deliberately sets '
+    'low TTL values to elicit TTL-exceeded responses from each intermediate router.\n\n'
+    '2. Data size: The tracert echo request carries 64 bytes of all-zero (0x00) padding, while the '
+    'ping request carries 32 bytes of alphabetic padding ("abcdefgh...").\n\n'
+    '3. IP Total Length: Tracert = 92 bytes (20 IP + 8 ICMP header + 64 data) vs. Ping = 60 bytes '
+    '(20 IP + 8 ICMP header + 32 data).\n\n'
+    'Similarities: Both use ICMP Type 8 (Echo Request) and Code 0, and both contain the same ICMP '
+    'fields (Checksum, Identifier, Sequence Number). Both share the same Identifier value (0x0007).'
 )
 
 # --- Q9 ---
@@ -213,23 +235,33 @@ p.add_run(
     'from the ICMP error packets? Why are they different?'
 ).italic = True
 
-add_img(f"{SHOTS}/icmp_q9_ttl_exceeded.png")
-add_img(f"{SHOTS}/icmp_q9_last_packets.png")
+img(f"{SHOTS}/icmp_q9_ttl_exceeded.png")
+img(f"{SHOTS}/icmp_q9_echo_reply.png")
 doc.add_paragraph(
-    'The last three ICMP packets received are TTL-exceeded (Type 11, Code 0) messages from the 9th hop '
-    'router (213.144.183.207). In our trace, the tracert to www.inria.fr did not fully complete.\n\n'
-    'In a complete tracert, the last three packets would be Echo Reply (Type 0, Code 0) from the '
-    'destination host (128.93.162.83) rather than TTL-exceeded errors from intermediate routers.\n\n'
-    'Key differences between Echo Reply and TTL-exceeded:\n'
-    '1. Type: Echo Reply = Type 0; TTL-exceeded = Type 11\n'
-    '2. Source IP: Echo Reply comes from the destination; TTL-exceeded comes from intermediate routers\n'
-    '3. Payload: TTL-exceeded packets contain the original IP header + first 8 bytes of the triggering '
-    'packet (encapsulated). Echo Reply simply echoes back the original data.\n'
-    '4. Why different: The last-hop probes reach the destination without TTL expiring, so the destination '
-    'responds with an Echo Reply instead of a router dropping the packet.'
+    'In a complete tracert, the last three ICMP packets received by the source are Echo Reply '
+    '(Type 0, Code 0) messages from the destination host, rather than TTL-exceeded (Type 11, Code 0) '
+    'error messages from intermediate routers.\n\n'
+    'The key differences between these Echo Reply packets and the earlier TTL-exceeded error packets are:\n\n'
+    '1. ICMP Type: Echo Reply = Type 0; TTL-exceeded = Type 11.\n\n'
+    '2. Source IP: Echo Reply comes from the final destination (e.g., 128.93.162.83 for www.inria.fr), '
+    'while TTL-exceeded comes from intermediate routers along the path.\n\n'
+    '3. Payload structure: TTL-exceeded error packets contain extra fields — specifically, the complete '
+    'IP header plus the first 8 bytes of the original datagram that triggered the error (the encapsulated '
+    'ICMP header). This is visible in the first screenshot (Frame 116) where the TTL-exceeded packet from '
+    '192.168.68.1 contains the original IP header (Src=192.168.68.75, Dst=128.93.162.83) and original '
+    'ICMP header (Type 8, ID=0x0007). Echo Reply packets simply echo back the data from the request '
+    'without encapsulating any IP headers.\n\n'
+    '4. Why they are different: The last-hop probe packets have a TTL large enough to reach the '
+    'destination without expiring at any intermediate router. Therefore, instead of a router dropping '
+    'the packet and generating a TTL-exceeded error, the destination host itself receives the Echo Request '
+    'and responds with an Echo Reply. The second screenshot shows an Echo Reply (Type 0) from the ping '
+    'capture as an example of this packet type.\n\n'
+    'Note: In our tracert capture, the trace to www.inria.fr reached hop 9 (213.144.183.207) before '
+    'the capture ended. The destination (128.93.162.83) is approximately 11 hops away (inferred from '
+    'the reply TTL of 53 in ping, i.e., 64 − 53 = 11 hops), so a longer capture would have shown '
+    'the expected Echo Replies.'
 )
 
-# Save
 out = 'C:/Users/User/Downloads/lab3/Lab3_Report_Cheng Wui Sum_22074221D.docx'
 doc.save(out)
 print(f'Report saved: {out}')
