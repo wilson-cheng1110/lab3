@@ -1,0 +1,7 @@
+lab2_images/
+test.pcapng
+test_capture.pcapng
+npcap-installer.exe
+RawCap.exe
+__pycache__/
+*.pyc
